@@ -79,8 +79,8 @@ h4 { margin: 0; font-size: 14px; }
 .button--primary { border-color: #ff4655; background: linear-gradient(135deg, #ff4655, #e93647); color: #fff; font-weight: 800; box-shadow: 0 8px 25px rgba(255,70,85,.18); }
 .button--primary:hover { border-color: #ff4655-2; background: linear-gradient(135deg, #ff4655-2, #ff4655); }
 .button--ghost { background: transparent; }
-#logoutButton { border: 0; background: transparent; }
-#logoutButton:hover { border: 0; background: rgba(255,255,255,.045); }
+#logoutButton { border: 0 !important; background: transparent; box-shadow: none; }
+#logoutButton:hover { border: 0 !important; background: rgba(255,255,255,.045); box-shadow: none; }
 .button--add { border: 0; background: rgba(255,255,255,.045); box-shadow: none; }
 .button--add:hover { border: 0; background: rgba(255,255,255,.085); }
 .button--wide { width: 100%; margin-top: 8px; }
@@ -271,3 +271,6 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 
 @media (max-width:760px){#newTrainingButton{display:none!important}}
 @media (min-width:761px){#newTrainingButton{display:inline-flex!important}}
+
+/* Final header polish */
+@media (min-width: 1051px) { .account-actions { margin-left: auto; width: 100%; } #logoutButton { border: 0 !important; } }

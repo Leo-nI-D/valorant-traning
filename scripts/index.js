@@ -527,8 +527,8 @@ function renderRunExercise(exercise, index) {
           <time datetime="${escapeHtml(result.date)}">${formatDate(result.date)}</time>
           <strong>${escapeHtml(resultLabel(exercise, result))}</strong>
           <span class="history-row__actions">
-            <button class="text-button" type="button" data-action="edit-history" data-id="${result.id}">Изменить</button>
-            <button class="text-button text-button--danger" type="button" data-action="delete-history" data-id="${result.id}">Удалить</button>
+            <button class="text-button" type="button" data-action="edit-history" data-id="${result.id}" data-result-id="${result.id}">Изменить</button>
+            <button class="text-button text-button--danger" type="button" data-action="delete-history" data-id="${result.id}" data-result-id="${result.id}">Удалить</button>
           </span>
         </div>`).join('')}
     </section>` : '';
@@ -625,7 +625,9 @@ function openHistoryDialog(trainingId, exerciseId, editing = false, resultId = n
   const exercise = getExercise(training, exerciseId);
   if (!exercise) return;
 
-  const result = editing ? (exercise.history || []).find(item => item.id === resultId) : null;
+  const result = editing
+    ? (exercise.history || []).find(item => String(item.id) === String(resultId))
+    : null;
   if (editing && !result) return;
 
   $('#historyTrainingId').value = trainingId;
@@ -663,7 +665,7 @@ async function deleteHistoryResult(trainingId, resultId) {
     const response = await supabaseClient.from('results').delete().eq('id', resultId).eq('user_id', state.user.id);
     if (response.error) throw response.error;
 
-    exercise.history = (exercise.history || []).filter(result => result.id !== resultId);
+    exercise.history = (exercise.history || []).filter(result => String(result.id) !== String(resultId));
     cacheData();
     renderProgress();
     openRunDialog(trainingId);
@@ -713,7 +715,7 @@ async function handleHistorySubmit(event) {
     };
 
     if (resultId) {
-      const index = exercise.history.findIndex(item => item.id === resultId);
+      const index = exercise.history.findIndex(item => String(item.id) === String(resultId));
       if (index !== -1) exercise.history[index] = saved;
     } else {
       exercise.history.push(saved);
@@ -844,10 +846,14 @@ document.addEventListener('click', event => {
       openHistoryDialog($('#runContent').dataset.trainingId, id);
     }
     if (action === 'edit-history') {
-      openHistoryDialog($('#runContent').dataset.trainingId, actionElement.closest('.run-item').dataset.exerciseId, true, id);
+      const item = actionElement.closest('.run-item');
+      const exerciseId = item?.dataset.exerciseId;
+      if (exerciseId && id) {
+        openHistoryDialog($('#runContent').dataset.trainingId, exerciseId, true, id);
+      }
     }
     if (action === 'delete-history') {
-      deleteHistoryResult($('#runContent').dataset.trainingId, id);
+      if (id) deleteHistoryResult($('#runContent').dataset.trainingId, id);
     }
   }
 
