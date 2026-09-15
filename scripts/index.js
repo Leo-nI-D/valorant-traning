@@ -527,8 +527,8 @@ function renderRunExercise(exercise, index) {
           <time datetime="${escapeHtml(result.date)}">${formatDate(result.date)}</time>
           <strong>${escapeHtml(resultLabel(exercise, result))}</strong>
           <span class="history-row__actions">
-            <button class="text-button" type="button" data-action="edit-history" data-id="${result.id}" data-result-id="${result.id}">Изменить</button>
-            <button class="text-button text-button--danger" type="button" data-action="delete-history" data-id="${result.id}" data-result-id="${result.id}">Удалить</button>
+            <button class="text-button" type="button" data-action="edit-history" data-id="${result.id}" data-result-id="${result.id}" data-exercise-id="${exercise.id}">Изменить</button>
+            <button class="text-button text-button--danger" type="button" data-action="delete-history" data-id="${result.id}" data-result-id="${result.id}" data-exercise-id="${exercise.id}">Удалить</button>
           </span>
         </div>`).join('')}
     </section>` : '';
@@ -656,7 +656,7 @@ function openHistoryDialog(trainingId, exerciseId, editing = false, resultId = n
 async function deleteHistoryResult(trainingId, resultId) {
   const training = getTraining(trainingId);
   if (!training) return;
-  const exercise = training.exercises.find(item => (item.history || []).some(result => result.id === resultId));
+  const exercise = training.exercises.find(item => (item.history || []).some(result => String(result.id) === String(resultId)));
   if (!exercise) return;
 
   if (!window.confirm('Удалить этот результат из истории?')) return;
@@ -822,38 +822,52 @@ function setView(view) {
 
 document.addEventListener('click', event => {
   const actionElement = event.target.closest('[data-action]');
-  if (actionElement) {
-    const { action, id } = actionElement.dataset;
 
-    if (action === 'create-training') openTrainingDialog();
-    if (action === 'run-training') openRunDialog(id);
-    if (action === 'edit-training') openTrainingDialog(id);
-    if (action === 'remove-exercise') {
-      state.editingExercises.splice(Number(actionElement.dataset.index), 1);
-      renderExerciseEditor();
-    }
-    if (action === 'save-result') {
-      completeExercise($('#runContent').dataset.trainingId, id, actionElement.closest('.run-item'));
-    }
-    if (action === 'toggle-history') {
-      const container = actionElement.closest('.run-item');
-      const history = $('[data-history-for]', container);
-      const hidden = history.classList.toggle('hidden');
-      actionElement.textContent = hidden ? 'Показать историю' : 'Скрыть историю';
-      actionElement.setAttribute('aria-expanded', String(!hidden));
-    }
-    if (action === 'add-history') {
-      openHistoryDialog($('#runContent').dataset.trainingId, id);
-    }
-    if (action === 'edit-history') {
-      const item = actionElement.closest('.run-item');
-      const exerciseId = item?.dataset.exerciseId;
-      if (exerciseId && id) {
-        openHistoryDialog($('#runContent').dataset.trainingId, exerciseId, true, id);
+  if (actionElement) {
+    event.preventDefault();
+
+    const { action, id, exerciseId } = actionElement.dataset;
+    const trainingId = $('#runContent').dataset.trainingId;
+
+    switch (action) {
+      case 'create-training':
+        openTrainingDialog();
+        return;
+      case 'run-training':
+        openRunDialog(id);
+        return;
+      case 'edit-training':
+        openTrainingDialog(id);
+        return;
+      case 'remove-exercise':
+        state.editingExercises.splice(Number(actionElement.dataset.index), 1);
+        renderExerciseEditor();
+        return;
+      case 'save-result':
+        completeExercise(trainingId, id, actionElement.closest('.run-item'));
+        return;
+      case 'toggle-history': {
+        const container = actionElement.closest('.run-item');
+        const history = $('[data-history-for]', container);
+        if (!history) return;
+        const hidden = history.classList.toggle('hidden');
+        actionElement.textContent = hidden ? 'Показать историю' : 'Скрыть историю';
+        actionElement.setAttribute('aria-expanded', String(!hidden));
+        return;
       }
-    }
-    if (action === 'delete-history') {
-      if (id) deleteHistoryResult($('#runContent').dataset.trainingId, id);
+      case 'add-history':
+        openHistoryDialog(trainingId, id);
+        return;
+      case 'edit-history':
+        if (exerciseId && id) {
+          openHistoryDialog(trainingId, exerciseId, true, id);
+        }
+        return;
+      case 'delete-history':
+        if (id) deleteHistoryResult(trainingId, id);
+        return;
+      default:
+        return;
     }
   }
 

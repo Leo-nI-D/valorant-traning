@@ -263,14 +263,12 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 }
 
 
-/* Mobile: the header action is desktop-only. */
-#newTrainingButton { display: none !important; }
-@media (min-width: 761px) {
-  #newTrainingButton { display: inline-flex !important; }
+/* Header action visibility */
+#newTrainingButton { display: inline-flex !important; }
+#logoutButton { border: 0 !important; }
+@media (max-width: 760px) {
+  #newTrainingButton { display: none !important; }
 }
-
-@media (max-width:760px){#newTrainingButton{display:none!important}}
-@media (min-width:761px){#newTrainingButton{display:inline-flex!important}}
-
-/* Final header polish */
-@media (min-width: 1051px) { .account-actions { margin-left: auto; width: 100%; } #logoutButton { border: 0 !important; } }
+@media (min-width: 1051px) {
+  .account-actions { margin-left: auto; width: 100%; }
+}
