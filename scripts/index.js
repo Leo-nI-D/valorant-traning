@@ -83,6 +83,14 @@ function getExercise(training, id) {
 
 function resultLabel(exercise, result) {
   if (!result) return '—';
+  if (isDeathmatchExercise(exercise) && ['score', 'scorePlacement'].includes(exercise.resultType)) {
+    const kd = kdValue(result);
+    const kdLabel = kd === null ? 'K/D —' : `K/D ${kd.toFixed(2)}`;
+    const base = `${result.valueA} / ${result.valueB}`;
+    return exercise.resultType === 'scorePlacement'
+      ? `${base}, ${result.placement} место · ${kdLabel}`
+      : `${base} · ${kdLabel}`;
+  }
   switch (exercise.resultType) {
     case 'time': return `${result.value} сек`;
     case 'count': return String(result.value ?? '');
@@ -104,11 +112,23 @@ function getBest(exercise) {
     return history.reduce((best, item) => Number(item.value) > Number(best.value) ? item : best);
   }
   if (exercise.resultType === 'score') {
+    if (isDeathmatchExercise(exercise)) {
+      const numeric = history.filter(item => kdValue(item) !== null);
+      return numeric.length
+        ? numeric.reduce((best, item) => kdValue(item) > kdValue(best) ? item : best)
+        : history.at(-1);
+    }
     return history.reduce((best, item) =>
       Number(item.valueA) + Number(item.valueB) > Number(best.valueA) + Number(best.valueB) ? item : best
     );
   }
   if (exercise.resultType === 'scorePlacement') {
+    if (isDeathmatchExercise(exercise)) {
+      const numeric = history.filter(item => kdValue(item) !== null);
+      return numeric.length
+        ? numeric.reduce((best, item) => kdValue(item) > kdValue(best) ? item : best)
+        : history.at(-1);
+    }
     return history.reduce((best, item) => Number(item.valueA) > Number(best.valueA) ? item : best);
   }
   return history.at(-1);
@@ -291,6 +311,19 @@ function renderTrainings() {
   }).join('');
 }
 
+function isDeathmatchExercise(exercise) {
+  const name = String(exercise?.name || '').trim().toLocaleLowerCase('ru-RU');
+  return name === 'deathmatch' || name === 'дезматч' || name === 'dm'
+    || name.includes('deathmatch') || name.includes('дезматч');
+}
+
+function kdValue(result) {
+  const kills = Number(result?.valueA);
+  const deaths = Number(result?.valueB);
+  if (!Number.isFinite(kills) || !Number.isFinite(deaths) || deaths <= 0) return null;
+  return kills / deaths;
+}
+
 function progressGroupKey(exercise) {
   const name = String(exercise.name || '').trim().toLocaleLowerCase('ru-RU');
   const weapon = String(exercise.weapon || '').trim().toLocaleLowerCase('ru-RU');
@@ -306,7 +339,9 @@ function progressMetric(exercise, result) {
       return Number.isFinite(Number(result.value)) ? Number(result.value) : null;
     case 'score':
     case 'scorePlacement':
-      return Number.isFinite(Number(result.valueA)) ? Number(result.valueA) : null;
+      return isDeathmatchExercise(exercise)
+        ? kdValue(result)
+        : (Number.isFinite(Number(result.valueA)) ? Number(result.valueA) : null);
     default:
       return null;
   }
@@ -318,7 +353,7 @@ function progressMetricLabel(exercise) {
     case 'count': return 'Количество';
     case 'placement': return 'Место';
     case 'score':
-    case 'scorePlacement': return 'Первая часть счёта';
+    case 'scorePlacement': return isDeathmatchExercise(exercise) ? 'K/D' : 'Первая часть счёта';
     default: return '';
   }
 }
@@ -327,6 +362,9 @@ function formatProgressMetric(exercise, value) {
   if (!Number.isFinite(value)) return '—';
   if (exercise.resultType === 'time') return `${value} сек`;
   if (exercise.resultType === 'placement') return `${value} место`;
+  if (isDeathmatchExercise(exercise) && ['score', 'scorePlacement'].includes(exercise.resultType)) {
+    return value.toFixed(2);
+  }
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
@@ -624,9 +662,11 @@ function resultInputMarkup(exercise, prefix = 'result') {
   const common = 'class="result-input"';
 
   if (['score', 'scorePlacement'].includes(exercise.resultType)) {
+    const firstLabel = isDeathmatchExercise(exercise) ? 'Убийства' : 'Результат A';
+    const secondLabel = isDeathmatchExercise(exercise) ? 'Смерти' : 'Результат B';
     return `
-      <input ${common} type="number" step="any" id="${id}_a" placeholder="Результат A" aria-label="Результат A">
-      <input ${common} type="number" step="any" id="${id}_b" placeholder="Результат B" aria-label="Результат B">
+      <input ${common} type="number" step="any" min="0" id="${id}_a" placeholder="${firstLabel}" aria-label="${firstLabel}">
+      <input ${common} type="number" step="any" min="0" id="${id}_b" placeholder="${secondLabel}" aria-label="${secondLabel}">
       ${exercise.resultType === 'scorePlacement'
         ? `<input ${common} type="number" min="1" step="1" id="${id}_p" placeholder="Место" aria-label="Место">`
         : ''}`;
