@@ -291,13 +291,145 @@ function renderTrainings() {
   }).join('');
 }
 
+function progressGroupKey(exercise) {
+  const name = String(exercise.name || '').trim().toLocaleLowerCase('ru-RU');
+  const weapon = String(exercise.weapon || '').trim().toLocaleLowerCase('ru-RU');
+  return `${name}::${weapon}`;
+}
+
+function progressMetric(exercise, result) {
+  if (!result) return null;
+  switch (exercise.resultType) {
+    case 'time':
+    case 'count':
+    case 'placement':
+      return Number.isFinite(Number(result.value)) ? Number(result.value) : null;
+    case 'score':
+    case 'scorePlacement':
+      return Number.isFinite(Number(result.valueA)) ? Number(result.valueA) : null;
+    default:
+      return null;
+  }
+}
+
+function progressMetricLabel(exercise) {
+  switch (exercise.resultType) {
+    case 'time': return 'Время, сек';
+    case 'count': return 'Количество';
+    case 'placement': return 'Место';
+    case 'score':
+    case 'scorePlacement': return 'Первая часть счёта';
+    default: return '';
+  }
+}
+
+function formatProgressMetric(exercise, value) {
+  if (!Number.isFinite(value)) return '—';
+  if (exercise.resultType === 'time') return `${value} сек`;
+  if (exercise.resultType === 'placement') return `${value} место`;
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function getProgressBest(records, exercise) {
+  const numeric = records
+    .map(record => ({ record, value: progressMetric(exercise, record.result) }))
+    .filter(item => item.value !== null);
+  if (!numeric.length) return null;
+
+  const lowerIsBetter = ['time', 'placement'].includes(exercise.resultType);
+  return numeric.reduce((best, item) => lowerIsBetter
+    ? (item.value < best.value ? item : best)
+    : (item.value > best.value ? item : best)
+  );
+}
+
+function buildProgressChart(exercise, records) {
+  if (!['time', 'count', 'placement', 'score', 'scorePlacement'].includes(exercise.resultType)) return '';
+
+  const points = records
+    .map(record => ({
+      date: record.result.date,
+      value: progressMetric(exercise, record.result),
+      label: resultLabel(exercise, record.result)
+    }))
+    .filter(point => point.value !== null)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  if (points.length < 2) {
+    return '<p class="chart-empty">Нужно минимум 2 числовых результата, чтобы построить график.</p>';
+  }
+
+  const width = 800;
+  const height = 240;
+  const pad = { top: 22, right: 20, bottom: 42, left: 48 };
+  const plotWidth = width - pad.left - pad.right;
+  const plotHeight = height - pad.top - pad.bottom;
+  const values = points.map(point => point.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const spread = max - min || Math.max(Math.abs(max) * 0.08, 1);
+  const yMin = min - spread * 0.12;
+  const yMax = max + spread * 0.12;
+  const xStep = points.length === 1 ? 0 : plotWidth / (points.length - 1);
+  const y = value => pad.top + ((yMax - value) / (yMax - yMin)) * plotHeight;
+  const x = index => pad.left + index * xStep;
+  const linePoints = points.map((point, index) => `${x(index).toFixed(1)},${y(point.value).toFixed(1)}`).join(' ');
+  const grid = [0, 0.5, 1].map(ratio => {
+    const gy = pad.top + ratio * plotHeight;
+    const value = yMax - ratio * (yMax - yMin);
+    return `<line x1="${pad.left}" y1="${gy.toFixed(1)}" x2="${width - pad.right}" y2="${gy.toFixed(1)}" class="chart-grid-line"></line>
+      <text x="${pad.left - 10}" y="${(gy + 4).toFixed(1)}" text-anchor="end" class="chart-axis-label">${escapeHtml(formatProgressMetric(exercise, value))}</text>`;
+  }).join('');
+  const circles = points.map((point, index) => `
+    <circle cx="${x(index).toFixed(1)}" cy="${y(point.value).toFixed(1)}" r="4" class="chart-point">
+      <title>${escapeHtml(formatDate(point.date))}: ${escapeHtml(point.label)}</title>
+    </circle>`).join('');
+  const labelIndexes = points.length <= 7
+    ? points.map((_, index) => index)
+    : [0, Math.floor((points.length - 1) / 2), points.length - 1];
+  const xLabels = labelIndexes.map(index => `
+    <text x="${x(index).toFixed(1)}" y="${height - 14}" text-anchor="middle" class="chart-axis-label">${escapeHtml(formatDate(points[index].date).slice(0, 5))}</text>`).join('');
+
+  return `
+    <div class="progress-chart" aria-label="График прогресса ${escapeHtml(exercise.name)}">
+      <div class="progress-chart__top">
+        <span>Динамика</span>
+        <span>${escapeHtml(progressMetricLabel(exercise))}</span>
+      </div>
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Изменение результата по датам">
+        ${grid}
+        <polyline points="${linePoints}" class="chart-line" fill="none"></polyline>
+        ${circles}
+        ${xLabels}
+      </svg>
+    </div>`;
+}
+
 function renderProgress() {
   const root = $('#progressList');
-  const exercises = state.trainings.flatMap(training =>
-    training.exercises.map(exercise => ({ ...exercise, trainingName: training.name }))
-  );
-  const withHistory = exercises.filter(exercise => exercise.history?.length);
+  const groups = new Map();
 
+  for (const training of state.trainings) {
+    for (const exercise of training.exercises) {
+      if (!exercise.history?.length) continue;
+      const key = progressGroupKey(exercise);
+      if (!groups.has(key)) {
+        groups.set(key, {
+          name: exercise.name || 'Упражнение',
+          weapon: exercise.weapon || '',
+          types: new Set(),
+          records: []
+        });
+      }
+      const group = groups.get(key);
+      group.types.add(exercise.resultType);
+      for (const result of exercise.history) {
+        group.records.push({ result, exercise, trainingName: training.name });
+      }
+    }
+  }
+
+  const withHistory = [...groups.values()].filter(group => group.records.length);
   if (!withHistory.length) {
     root.innerHTML = `
       <article class="empty">
@@ -307,25 +439,48 @@ function renderProgress() {
     return;
   }
 
-  root.innerHTML = withHistory.map(exercise => {
-    const sorted = [...exercise.history].sort((a, b) => new Date(b.date) - new Date(a.date));
+  root.innerHTML = withHistory.map(group => {
+    const sorted = [...group.records].sort((a, b) => new Date(b.result.date) - new Date(a.result.date));
+    const singleType = group.types.size === 1;
+    const exercise = group.records[0].exercise;
+    const best = singleType ? getProgressBest(group.records, exercise) : null;
+    const numericValues = singleType
+      ? group.records.map(record => progressMetric(exercise, record.result)).filter(value => value !== null)
+      : [];
+    const average = numericValues.length
+      ? numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length
+      : null;
+
     return `
       <article class="progress-card">
         <header class="progress-card__head">
           <div>
-            <p class="eyebrow">${escapeHtml(exercise.trainingName)}</p>
-            <h2>${escapeHtml(exercise.name)}</h2>
-            <p class="muted">${escapeHtml(exercise.weapon || '')}</p>
+            <p class="eyebrow">${group.records.length} результатов</p>
+            <h2>${escapeHtml(group.name)}</h2>
+            <p class="muted">${escapeHtml(group.weapon || 'Без оружия')}</p>
           </div>
-          <p class="best">Лучший: ${escapeHtml(resultLabel(exercise, getBest(exercise)))}</p>
+          <p class="best">${best ? `Лучший: ${escapeHtml(resultLabel(exercise, best.record.result))}` : 'Разные типы результата'}</p>
         </header>
-        <div class="history" aria-label="История результатов">
-          ${sorted.map(result => `
-            <div class="history-row">
-              <time datetime="${escapeHtml(result.date)}">${formatDate(result.date)}</time>
-              <strong>${escapeHtml(resultLabel(exercise, result))}</strong>
-            </div>`).join('')}
+
+        <div class="progress-stats" aria-label="Сводка статистики">
+          <div><span>Попыток</span><strong>${group.records.length}</strong></div>
+          <div><span>Средний</span><strong>${average !== null ? escapeHtml(formatProgressMetric(exercise, average)) : '—'}</strong></div>
+          <div><span>Последний</span><strong>${escapeHtml(resultLabel(sorted[0].exercise, sorted[0].result))}</strong></div>
         </div>
+
+        ${singleType ? buildProgressChart(exercise, group.records) : '<p class="chart-empty">Для этого упражнения сохранены разные типы результата, поэтому общий график не строится.</p>'}
+
+        <details class="progress-history">
+          <summary>История результатов</summary>
+          <div class="history" aria-label="История результатов">
+            ${sorted.map(record => `
+              <div class="history-row">
+                <time datetime="${escapeHtml(record.result.date)}">${formatDate(record.result.date)}</time>
+                <strong>${escapeHtml(resultLabel(record.exercise, record.result))}</strong>
+                <span class="muted">${escapeHtml(record.trainingName)}</span>
+              </div>`).join('')}
+          </div>
+        </details>
       </article>`;
   }).join('');
 }

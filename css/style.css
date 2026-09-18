@@ -272,3 +272,11 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 @media (min-width: 1051px) {
   .account-actions { margin-left: auto; width: 100%; }
 }
+
+/* Progress charts */
+.progress-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:18px 0}.progress-stats>div{padding:11px 12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025)}.progress-stats span{display:block;margin-bottom:3px;color:#89919d;font-size:10px;text-transform:uppercase;letter-spacing:.08em}.progress-stats strong{font-size:15px}.progress-chart{margin:18px 0 12px;padding:14px 12px 8px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(5,8,12,.38)}.progress-chart__top{display:flex;justify-content:space-between;gap:12px;margin:0 4px 4px;color:#89919d;font-size:10px;letter-spacing:.08em;text-transform:uppercase}.progress-chart svg{display:block;width:100%;height:auto;overflow:visible}.chart-grid-line{stroke:rgba(255,255,255,.07);stroke-width:1}.chart-axis-label{fill:#69727f;font-size:11px;font-family:inherit}.chart-line{stroke:#ff4655;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 7px rgba(255,70,85,.28))}.chart-point{fill:#ff4655;stroke:#10141b;stroke-width:2}.chart-empty{margin:14px 0 4px;color:#89919d;font-size:12px}.progress-history{margin-top:14px;border-top:1px solid rgba(255,255,255,.08);padding-top:11px}.progress-history summary{cursor:pointer;color:#aeb6c4;font-size:12px}.progress-history summary:hover{color:#f4f5f7}.progress-history .history{margin-top:9px}
+@media (max-width:640px){.progress-stats{grid-template-columns:1fr 1fr 1fr;gap:6px}.progress-stats>div{padding:9px 8px}.progress-stats strong{font-size:13px}.progress-chart{margin-inline:-4px;padding-inline:6px}}
+/* Header action visibility */
+@media (min-width:761px){#newTrainingButton{display:inline-flex}}
+@media (max-width:760px){#newTrainingButton{display:none!important}}
+#logoutButton{border:0!important}
