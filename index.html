@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="VALTRAIN — персональный трекер тренировок Valorant.">
+  <title>VALTRAIN — тренировки Valorant</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg" sizes="any">
+  <link rel="stylesheet" href="css/style.css?v=13.10">
+</head>
+<body>
+  <a class="skip-link" href="#mainContent">Перейти к содержимому</a>
+  <section id="authScreen" class="auth-screen" aria-labelledby="authTitle">
+    <div class="auth-card">
+      <p class="logo logo--large">VAL<span>TRAIN</span></p>
+      <p class="eyebrow">PERSONAL TRAINING HUB</p>
+      <h1 id="authTitle">Вход</h1>
+      <p class="muted" id="authHint">Войди, чтобы тренировки и результаты синхронизировались между устройствами.</p>
+
+      <form id="authForm" aria-describedby="authHint authError">
+        <div class="form-field">
+          <label for="authEmail">Email</label>
+          <input id="authEmail" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+        </div>
+        <div class="form-field">
+          <label for="authPassword">Пароль</label>
+          <input id="authPassword" name="password" type="password" autocomplete="current-password" minlength="6" required placeholder="Минимум 6 символов">
+        </div>
+        <button class="button button--primary button--wide" id="authSubmit" type="submit">Войти</button>
+      </form>
+      <p class="auth-error" id="authError" role="alert"></p>
+      <button class="text-button" id="authToggle" type="button">Нет аккаунта? Зарегистрироваться</button>
+    </div>
+  </section>
+
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="container topbar__inner">
+        <a class="logo" href="#mainContent" aria-label="VALTRAIN — тренировки">VAL<span>TRAIN</span></a>
+
+        <nav class="nav" aria-label="Основная навигация">
+          <button class="nav__button is-active" type="button" data-view="trainings" aria-current="page" aria-controls="trainingsView">Тренировки</button>
+          <button class="nav__button" type="button" data-view="progress" aria-controls="progressView">Прогресс</button>
+          <button class="nav__button" type="button" data-view="profile" aria-controls="profileView">Профиль</button>
+        </nav>
+
+        <div class="account-actions">
+          <span class="account-email" id="accountEmail"></span>
+          <button class="button button--primary" id="newTrainingButton" type="button">+ Новая тренировка</button>
+          <button class="button button--ghost" id="logoutButton" type="button">Выйти</button>
+          <div class="data-tools">
+            <button class="text-button" id="exportDataButton" type="button">Экспорт данных</button>
+            <button class="text-button" id="importDataOpen" type="button">Импорт данных</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="mainContent" class="container main">
+      <section id="trainingsView" class="view" aria-labelledby="trainingsHeading">
+        <header class="page-heading">
+          <div>
+            <p class="eyebrow">YOUR TRAINING HUB</p>
+            <h1 id="trainingsHeading">Мои тренировки</h1>
+            <p class="muted">Создавай свои тренировки, выполняй упражнения и сохраняй каждый результат.</p>
+          </div>
+          <button class="button button--primary page-heading__action" id="pageNewTrainingButton" type="button">+ Создать тренировку</button>
+        </header>
+        <div id="trainingList" class="training-grid" aria-live="polite"></div>
+      </section>
+
+      <section id="profileView" class="view" hidden aria-labelledby="profileHeading">
+        <header class="page-heading">
+          <div>
+            <p class="eyebrow">PROFILE</p>
+            <h1 id="profileHeading">Профиль</h1>
+            <p class="muted">Твои игровые настройки и последняя запись изменений.</p>
+          </div>
+        </header>
+
+        <section class="profile-card" aria-labelledby="profileSettingsHeading">
+          <header class="profile-card__header">
+            <div>
+              <p class="eyebrow">VALORANT SETTINGS</p>
+              <h2 id="profileSettingsHeading">Чувствительность</h2>
+              <p class="muted">Сохрани текущую сенсу, чтобы всегда видеть, с какими настройками ты тренируешься.</p>
+            </div>
+            <div class="profile-recorded" id="sensitivityRecorded" aria-live="polite">Ещё не записано</div>
+          </header>
+
+          <form id="sensitivityForm" class="sensitivity-form">
+            <div class="sensitivity-grid">
+              <div class="form-field">
+                <label for="sensitivityAim">Sensitivity: Aim</label>
+                <input id="sensitivityAim" name="sensitivityAim" type="number" min="0" step="any" inputmode="decimal" placeholder="Например, 0.35" required>
+              </div>
+              <div class="form-field">
+                <label for="scopedSensitivityMultiplier">Scoped Sensitivity Multiplier</label>
+                <input id="scopedSensitivityMultiplier" name="scopedSensitivityMultiplier" type="number" min="0" step="any" inputmode="decimal" placeholder="Например, 1.00" required>
+              </div>
+              <div class="form-field">
+                <label for="adsSensitivityMultiplier">ADS Sensitivity Multiplier</label>
+                <input id="adsSensitivityMultiplier" name="adsSensitivityMultiplier" type="number" min="0" step="any" inputmode="decimal" placeholder="Например, 1.00" required>
+              </div>
+              <div class="form-field">
+                <label for="sensitivityDpi">DPI</label>
+                <input id="sensitivityDpi" name="sensitivityDpi" type="number" min="1" step="1" inputmode="numeric" placeholder="Например, 800" required>
+              </div>
+            </div>
+            <div class="profile-actions">
+              <p class="profile-status" id="sensitivityStatus" role="status" aria-live="polite"></p>
+              <button class="button button--primary" type="submit" id="saveSensitivityButton">Сохранить настройки</button>
+            </div>
+          </form>
+        </section>
+      </section>
+
+      <section id="progressView" class="view" hidden aria-labelledby="progressHeading">
+        <header class="page-heading">
+          <div>
+            <p class="eyebrow">HISTORY</p>
+            <h1 id="progressHeading">Прогресс</h1>
+            <p class="muted">История результатов по всем упражнениям.</p>
+          </div>
+        </header>
+        <div id="progressList" class="progress-list" aria-live="polite"></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog class="modal" id="trainingModal" aria-labelledby="modalTitle">
+    <div class="modal__window">
+      <header class="modal__header">
+        <div>
+          <p class="eyebrow">EDITOR</p>
+          <h2 id="modalTitle">Новая тренировка</h2>
+        </div>
+        <button class="icon-button" type="button" data-close-dialog="trainingModal" aria-label="Закрыть">×</button>
+      </header>
+
+      <form id="trainingForm">
+        <input type="hidden" id="trainingId" name="trainingId">
+        <div class="form-field">
+          <label for="trainingName">Название тренировки</label>
+          <input id="trainingName" name="trainingName" required maxlength="80" placeholder="Например: Aim Warmup">
+        </div>
+        <div class="form-field">
+          <label for="trainingDescription">Описание</label>
+          <textarea id="trainingDescription" name="trainingDescription" rows="3" placeholder="Коротко о тренировке"></textarea>
+        </div>
+
+        <section aria-labelledby="exerciseEditorHeading">
+          <header class="section-row">
+            <h3 id="exerciseEditorHeading">Упражнения</h3>
+            <button type="button" class="button button--add" id="addExerciseButton">+ Добавить</button>
+          </header>
+          <div id="exerciseEditor"></div>
+        </section>
+
+        <footer class="modal__footer">
+          <button type="button" class="button button--ghost" data-close-dialog="trainingModal">Отмена</button>
+          <button class="button button--primary" type="submit">Сохранить тренировку</button>
+        </footer>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog class="modal" id="historyModal" aria-labelledby="historyModalTitle">
+    <div class="modal__window modal__window--small">
+      <header class="modal__header">
+        <div>
+          <p class="eyebrow">HISTORY</p>
+          <h2 id="historyModalTitle">Старый результат</h2>
+        </div>
+        <button class="icon-button" type="button" data-close-dialog="historyModal" aria-label="Закрыть">×</button>
+      </header>
+
+      <form id="historyForm">
+        <input type="hidden" id="historyTrainingId" name="historyTrainingId">
+        <input type="hidden" id="historyExerciseId" name="historyExerciseId">
+        <input type="hidden" id="historyResultId" name="historyResultId">
+        <div class="form-field">
+          <label for="historyDate">Дата результата</label>
+          <input id="historyDate" name="historyDate" type="date" required>
+        </div>
+        <fieldset>
+          <legend class="sr-only">Результат</legend>
+          <div id="historyResultFields" class="result-fields"></div>
+        </fieldset>
+        <footer class="modal__footer">
+          <button type="button" class="button button--ghost" data-close-dialog="historyModal">Отмена</button>
+          <button class="button button--primary" id="historySubmitButton" type="submit">Добавить результат</button>
+        </footer>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog class="modal" id="runModal" aria-labelledby="runTitle">
+    <div class="modal__window modal__window--small">
+      <header class="modal__header">
+        <div>
+          <p class="eyebrow">TRAINING</p>
+          <h2 id="runTitle">Тренировка</h2>
+        </div>
+        <button class="icon-button" type="button" data-close-dialog="runModal" aria-label="Закрыть">×</button>
+      </header>
+      <div id="runContent"></div>
+    </div>
+  </dialog>
+
+  <dialog class="modal" id="migrationModal" aria-labelledby="migrationTitle">
+    <div class="modal__window modal__window--small">
+      <header class="modal__header">
+        <div>
+          <p class="eyebrow">DATA</p>
+          <h2 id="migrationTitle">Перенос старых данных</h2>
+        </div>
+        <button class="icon-button" type="button" data-close-dialog="migrationModal" aria-label="Закрыть">×</button>
+      </header>
+      <p class="muted">Если у тебя есть тренировки в старой версии сайта, сначала экспортируй их из старого браузера, затем выбери JSON-файл здесь.</p>
+      <div class="form-field">
+        <label for="migrationFile">JSON-файл</label>
+        <input id="migrationFile" name="migrationFile" type="file" accept="application/json,.json">
+      </div>
+      <footer class="modal__footer">
+        <button type="button" class="button button--ghost" data-close-dialog="migrationModal">Отмена</button>
+        <button type="button" class="button button--primary" id="importDataButton">Импортировать</button>
+      </footer>
+      <p class="auth-error" id="migrationError" role="alert"></p>
+    </div>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="scripts/supabase-config.js"></script>
+  <script type="module" src="scripts/index.js?v=13.10.0"></script>
+</body>
+</html>

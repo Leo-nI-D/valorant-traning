@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VALTRAIN — Supabase migration export</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 20px; }
+    form { display: grid; gap: 12px; max-width: 420px; }
+    input, button { font: inherit; padding: 10px 12px; }
+    button { cursor: pointer; }
+    #status { white-space: pre-wrap; margin-top: 20px; }
+    .download-link { display: inline-block; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>VALTRAIN — резервная копия Supabase</h1>
+  <p>Инструмент только читает текущие данные из Supabase и создаёт JSON-файл. Ничего в Supabase не изменяется.</p>
+
+  <form id="form">
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="email" placeholder="Email" required>
+    <label for="password">Пароль</label>
+    <input id="password" type="password" autocomplete="current-password" placeholder="Пароль" required>
+    <button type="submit">Войти и экспортировать</button>
+  </form>
+
+  <p id="status" role="status" aria-live="polite"></p>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../scripts/supabase-config.js"></script>
+  <script>
+    const supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_PUBLISHABLE_KEY);
+    const PAGE_SIZE = 1000;
+    const status = document.getElementById('status');
+
+    async function fetchAll(table, userId, extraFilter = null) {
+      const rows = [];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        let query = supabaseClient.from(table).select('*').eq('user_id', userId).range(from, from + PAGE_SIZE - 1);
+        if (extraFilter) query = extraFilter(query);
+        const { data, error } = await query;
+        if (error) throw error;
+        rows.push(...(data || []));
+        if (!data || data.length < PAGE_SIZE) return rows;
+      }
+    }
+
+    function prepareDownload(payload) {
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `valtrain-supabase-migration-${new Date().toISOString().slice(0, 10)}.json`;
+      link.textContent = 'Скачать JSON';
+      link.className = 'download-link';
+      link.rel = 'noopener';
+      const oldLink = document.getElementById('download-link');
+      if (oldLink) oldLink.remove();
+      link.id = 'download-link';
+      status.appendChild(document.createTextNode('Файл подготовлен. '));
+      status.appendChild(link);
+      return link;
+    }
+
+    document.getElementById('form').addEventListener('submit', async event => {
+      event.preventDefault();
+      status.textContent = 'Выполняю экспорт…';
+      try {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const { data: auth, error: authError } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (authError) throw authError;
+        const user = auth.user;
+
+        const [trainings, exercises, results, dailyCompletions] = await Promise.all([
+          fetchAll('trainings', user.id),
+          fetchAll('exercises', user.id),
+          fetchAll('results', user.id),
+          fetchAll('daily_completions', user.id)
+        ]);
+
+        const resultsByExercise = new Map();
+        for (const result of results) {
+          const list = resultsByExercise.get(result.exercise_id) || [];
+          list.push({
+            id: result.id,
+            date: result.result_date,
+            value: result.value,
+            valueA: result.value_a,
+            valueB: result.value_b,
+            placement: result.placement,
+            created_at: result.created_at,
+            exercise_id: result.exercise_id
+          });
+          resultsByExercise.set(result.exercise_id, list);
+        }
+
+        const completions = dailyCompletions.map(item => ({
+          exerciseId: item.exercise_id,
+          completionDate: item.completion_date
+        }));
+        const completionSet = new Set(completions.map(item => `${item.exerciseId}::${item.completionDate}`));
+        const today = new Date().toISOString().slice(0, 10);
+
+        const trainingPayload = trainings
+          .sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
+          .map(training => ({
+            id: training.id,
+            name: training.name,
+            description: training.description || '',
+            created_at: training.created_at || null,
+            updated_at: training.updated_at || null,
+            exercises: exercises
+              .filter(exercise => exercise.training_id === training.id)
+              .sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
+              .map(exercise => ({
+                id: exercise.id,
+                name: exercise.name,
+                weapon: exercise.weapon || '',
+                resultType: exercise.result_type,
+                unit: exercise.unit || 'сек',
+                goal: exercise.goal || '',
+                completed: completionSet.has(`${exercise.id}::${today}`),
+                created_at: exercise.created_at || null,
+                updated_at: exercise.updated_at || null,
+                history: resultsByExercise.get(exercise.id) || []
+              }))
+          }));
+
+        const metadata = user.user_metadata || {};
+        const payload = {
+          format: 'valtrain-backup',
+          version: 2,
+          exportedAt: new Date().toISOString(),
+          source: 'supabase',
+          data: {
+            trainings: trainingPayload,
+            dailyCompletions: completions,
+            profile: {
+              aim: metadata.sensitivity_aim || '',
+              scoped: metadata.sensitivity_scoped || '',
+              ads: metadata.sensitivity_ads || '',
+              recordedAt: metadata.sensitivity_recorded_at || null,
+              dpi: metadata.dpi || '',
+              updated_at: metadata.updated_at || null
+            }
+          }
+        };
+
+        status.textContent = `Готово.\nТренировок: ${trainings.length}\nУпражнений: ${exercises.length}\nРезультатов: ${results.length}\nОтметок выполнения: ${dailyCompletions.length}\n\nSupabase не изменён.`;
+        prepareDownload(payload);
+        await supabaseClient.auth.signOut();
+      } catch (error) {
+        console.error(error);
+        status.textContent = `Ошибка: ${error.message || error}`;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "valtrain",
+  "version": "13.10.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node tests/check.mjs",
+    "test": "node tests/run-tests.mjs && node tests/ui-render-test.mjs",
+    "test:all": "npm test && npm run static-audit",
+    "static-audit": "python tests/static_audit.py"
+  }
+}

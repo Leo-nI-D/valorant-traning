@@ -1,0 +1,17 @@
+# Local/private data
+server/data/*.db
+server/data/*.db-wal
+server/data/*.db-shm
+server/data/backups/*.db
+migration/*.json
+valtrain-supabase-migration-*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Editor / OS
+.vscode/
+.DS_Store
+Thumbs.db
